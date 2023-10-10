@@ -8,14 +8,12 @@ public class BookService
 {
     private readonly BookContext _bookContext;
 
-    public BookService(
-        BookContext bookContext
-    )
+    public BookService(BookContext bookContext)
     {
         _bookContext = bookContext;
     }
 
-    public async Task PrepareContextAsync(CancellationToken cancellationToken)
+    public async Task PrepareContextAsync(int bookCount, CancellationToken cancellationToken)
     {
         /* Start with fresh data */
         var existingBooks = await _bookContext.Books.ToListAsync(cancellationToken);
@@ -26,12 +24,19 @@ public class BookService
         _bookContext.Authors.RemoveRange(existingAuthors);
         await _bookContext.SaveChangesAsync(cancellationToken);
 
-        for (var i = 1; i <= 1000; i++)
+        for (var i = 1; i <= bookCount; i++)
         {
-            var author = new Author
+            var author1 = new Author
             {
                 Id = Guid.NewGuid(),
-                Name = $"Author #{i}",
+                Name = $"Author #{i}.1",
+                Books = new List<Book>()
+            };
+
+            var author2 = new Author
+            {
+                Id = Guid.NewGuid(),
+                Name = $"Author #{i}.2",
                 Books = new List<Book>()
             };
 
@@ -41,14 +46,14 @@ public class BookService
                 Name = $"Book #{i}",
                 Chapters = new List<Chapter>(),
                 Pages = new List<Page>(),
-                Authors = new List<Author> { author }
+                Authors = new List<Author> { author1, author2 }
             };
 
-            _bookContext.Authors.Add(author);
+            _bookContext.Authors.Add(author1);
+            _bookContext.Authors.Add(author2);
             _bookContext.Books.Add(book);
-            book.Authors.Add(author);
 
-            for (var j = 1; j <= 5; j++)
+            for (var j = 1; j <= 2; j++)
             {
                 var chapter = new Chapter
                 {
@@ -60,7 +65,7 @@ public class BookService
                 book.Chapters.Add(chapter);
                 _bookContext.Chapters.Add(chapter);
 
-                for (var k = 1; k <= 10; k++)
+                for (var k = 1; k <= 5; k++)
                 {
                     var page = new Page
                     {
@@ -79,20 +84,46 @@ public class BookService
         await _bookContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IList<Book>> LoadBooksAsync(
+    public async Task<IList<Book>> LoadBooksSplitQueryAsync(
         int limit,
         int skip,
+        IEnumerable<Guid> bookIds,
         CancellationToken cancellationToken
     )
     {
         return await _bookContext.Books
-           .OrderBy(b => b.Name)
-           .Take(limit)
-           .Skip(skip)
-           .AsSplitQuery()
-           .Include(b => b.Chapters)
-           .ThenInclude(c => c.Pages)
-           .Include(b => b.Authors)
-           .ToListAsync(cancellationToken);
+            .AsSplitQuery()
+            .Where(b => bookIds.Contains(b.Id))
+            .Skip(skip)
+            .Take(limit)
+            .Include(b => b.Chapters)
+            .ThenInclude(c => c.Pages)
+            .Include(b => b.Authors)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IList<Book>> LoadBooksSingleQueryAsync(
+        int limit,
+        int skip,
+        IEnumerable<Guid> bookIds,
+        CancellationToken cancellationToken
+    )
+    {
+        return await _bookContext.Books
+            .AsSingleQuery()
+            .Where(b => bookIds.Contains(b.Id))
+            .Skip(skip)
+            .Take(limit)
+            .Include(b => b.Chapters)
+            .ThenInclude(c => c.Pages)
+            .Include(b => b.Authors)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<Guid>> LoadBookIdsAsync(CancellationToken cancellationToken)
+    {
+        return await _bookContext.Books
+            .Select(b => b.Id)
+            .ToListAsync(cancellationToken);
     }
 }
