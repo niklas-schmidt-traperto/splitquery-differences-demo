@@ -16,7 +16,7 @@ var bookIds = (await bookService.LoadBookIdsAsync(CancellationToken.None))
     .ToList();
 
 // Try LoadBooksSingleQueryAsync to compare results. Esp. setting skip > 0 messes with split query results.
-var results = await bookService.LoadBooksSplitQueryAsync(30_000, 1, bookIds, CancellationToken.None);
+var results = await bookService.LoadBooksSplitQueryAsync(1_000, 1, bookIds, CancellationToken.None);
 
 var bookCounts = results
     .Select(b => (
@@ -37,3 +37,16 @@ Console.WriteLine($"Min: {bookCounts.Select(b => b.pageSum).Min()}, Max: {bookCo
 
 Console.WriteLine($"{bookCounts.Count} Books contain avg. {bookCounts.Select(b => b.authorCount).Average()} Authors.");
 Console.WriteLine($"Min: {bookCounts.Select(b => b.authorCount).Min()}, Max: {bookCounts.Select(b => b.authorCount).Max()} Authors.");
+
+/*
+    Setting up 30_000 books and loading 1_000, skipping 1:
+
+    1000 Books contain avg. 0,22 Chapters.
+    Min: 0, Max: 2 Chapters.
+    1000 Books contain avg. 1,1 Pages.
+    Min: 0, Max: 10 Pages.
+    1000 Books contain avg. 0,22 Authors.
+    Min: 0, Max: 2 Authors.
+   
+    (see example.log)
+*/
